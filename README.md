@@ -10,6 +10,8 @@ It currently implements the following games:
 For action suggestion, it currently implements the following engines:
 - Monte Carlo Tree Search (MCTS).
 
+![image](https://github.com/user-attachments/assets/f0025229-d2df-4b0d-8f1e-05781bb38fad)
+
 # Stack
 
 The project uses the following technologies:
