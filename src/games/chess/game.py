@@ -92,7 +92,7 @@ class Chess(commons.Game):
             print(" ".join(row_text))
 
         if state.winner:
-            print(f'Player "{t.cast(ChessPlayer, state.winner).type}" wins')
+            print(f'Player "{t.cast(ChessPlayer, state.winner).type.value}" wins')
         elif self.is_terminal(state):
             print("Draw")
 
