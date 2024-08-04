@@ -12,6 +12,8 @@ For action suggestion, it currently implements the following engines:
 
 ![image](https://github.com/user-attachments/assets/f0025229-d2df-4b0d-8f1e-05781bb38fad)
 
+Note: although theoretically useful, MCTS is not usable with the current implementation of chess, as it would take several hours to suggest one good move.
+
 # Stack
 
 The project uses the following technologies:
