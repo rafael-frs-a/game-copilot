@@ -167,6 +167,11 @@ class MCTS(commons.Engine):
             winner = self.simulate(node)
             self.backpropagate(node, winner)
 
-        best_child = max(root_node.children, key=lambda child_node: child_node.visits)
+        default_child = Node("None", root_node.state, root_node)
+        best_child = max(
+            root_node.children,
+            key=lambda child_node: child_node.visits,
+            default=default_child,  # Used in case the number of iterations is zero
+        )
         chances = (best_child.wins / best_child.visits) if best_child.visits > 0 else 0
         print(f"Suggested move: {best_child.move}. Winning chances: {chances}")

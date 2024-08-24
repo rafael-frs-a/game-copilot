@@ -54,6 +54,9 @@ class GameState(abc.ABC):
     def get_next_player_idx(self) -> int:
         return (self.current_player_idx + 1) % len(self.players)
 
+    def get_next_player(self) -> Player:
+        return self.players[self.get_next_player_idx()]
+
 
 TData = t.TypeVar("TData")
 

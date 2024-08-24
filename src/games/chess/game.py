@@ -43,9 +43,7 @@ class Chess(commons.Game):
             ]
 
             for idx_col in range(8):
-                piece = piece_classes[idx_col](
-                    player, (idx_row, idx_col)
-                )  # type: ignore[abstract]
+                piece = piece_classes[idx_col](player, (idx_row, idx_col))
                 board[piece.current_position_notation] = piece
                 player.add_piece(piece)
 
@@ -118,7 +116,7 @@ class Chess(commons.Game):
         # Make new piece
         new_piece = piece.copy()
         new_piece.current_position = next_position
-        _, new_idx_col = next_position
+        new_idx_row, new_idx_col = next_position
         new_position_notation = chess_utils.position_to_notation[next_position]
 
         # Check for promotion
@@ -133,7 +131,11 @@ class Chess(commons.Game):
                 case chess_pieces.ChessPieceNotation.QUEEN.value:
                     new_piece = chess_pieces.Queen(current_player, next_position)
 
-        new_piece.moves += 1
+        match new_piece:
+            case chess_pieces.Rook() | chess_pieces.King():
+                new_piece.can_castle = False
+            case chess_pieces.Pawn():
+                new_piece.en_passant = abs(old_idx_row - new_idx_row) == 2
 
         # Check for capture
         captured_piece: t.Optional[chess_pieces.ChessPiece] = new_state.board.get(
@@ -302,11 +304,13 @@ class Chess(commons.Game):
 
     def make_move(self) -> None:
         while True:
+            next_player = t.cast(ChessPlayer, self.current_state.get_next_player())
+            print(f'Player "{next_player.type.value}"\'s turn')
             possible_moves = self.generate_possible_moves(self.current_state)
             print("Choose one of the following possible moves:")
 
-            for idx, possible_move in enumerate(possible_moves):
-                print(f"{idx + 1}. {possible_move[0]}")
+            for idx, possible_move in enumerate(possible_moves, start=1):
+                print(f"{idx}. {possible_move[0]}")
 
             move = utils.prompt_input("Enter your move: ")
             result = self.evaluate_move(self.current_state, move)

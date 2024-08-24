@@ -203,6 +203,8 @@ class TicTacToe(commons.Game):
 
     def make_move(self) -> None:
         while True:
+            next_player = t.cast(TicTacToePlayer, self.current_state.get_next_player())
+            print(f'Player "{next_player.symbol}"\'s turn')
             print("Choose a number between 1 and 9 matching an available square")
             print("E.g.:")
             print("1 2 3")

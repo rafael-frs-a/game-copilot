@@ -15,9 +15,6 @@ class ChessPlayer(commons.Player):
     def make_hash(self) -> None:
         self._hash = utils.make_hash_number(self.type.value)
 
-    def __hash__(self) -> int:
-        return self._hash
-
     def add_piece(self, piece: chess_pieces.ChessPiece) -> None:
         self._pieces.add(piece)
 

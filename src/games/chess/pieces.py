@@ -42,11 +42,10 @@ class ChessPiece(abc.ABC):
     symbol: str
 
     def __init__(
-        self, player: "ChessPlayer", current_position: tuple[int, int], moves: int = 0
+        self, player: "ChessPlayer", current_position: tuple[int, int]
     ) -> None:
         self.player = player
         self.current_position = current_position
-        self.moves = moves
 
     @property
     def current_position(self) -> tuple[int, int]:
@@ -110,12 +109,17 @@ class ChessPiece(abc.ABC):
 
 class Pawn(ChessPiece):
     def __init__(
-        self, player: "ChessPlayer", current_position: tuple[int, int], moves: int = 0
+        self,
+        player: "ChessPlayer",
+        current_position: tuple[int, int],
+        en_passant: bool = False,
     ) -> None:
-        super().__init__(player, current_position, moves)
+        super().__init__(player, current_position)
+        self.en_passant = en_passant
         self.notation = ChessPieceNotation.PAWN
         self.symbol = "♙" if self.player.type == ChessPlayerType.WHITE else "♟"
         self.direction = -1 if self.player.type == ChessPlayerType.WHITE else 1
+        self.initial_row_idx = 6 if self.player.type == ChessPlayerType.WHITE else 1
         self.promotion_row_idx = 0 if self.player.type == ChessPlayerType.WHITE else 7
         self.make_hash()
 
@@ -164,8 +168,8 @@ class Pawn(ChessPiece):
     @cache
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
-        move_range = 2 if self.moves == 0 else 1
         idx_row, idx_col = self.current_position
+        move_range = 2 if idx_row == self.initial_row_idx else 1
 
         for _ in range(move_range):
             idx_row += self.direction
@@ -209,28 +213,25 @@ class Pawn(ChessPiece):
             if not board_piece:
                 continue
 
-            if (
-                board_piece.player == self.player
-                or board_piece.notation != ChessPieceNotation.PAWN
-            ):
+            if board_piece.player == self.player or not isinstance(board_piece, Pawn):
                 continue
 
-            board_piece = t.cast(Pawn, board_piece)
-
-            if board_piece.moves == 1:
+            if board_piece.en_passant:
                 possible_moves.add(self.make_piece_move_command((idx_row, idx_col)))
 
         return possible_moves
 
     def copy(self) -> ChessPiece:
-        return Pawn(self.player, self.current_position, self.moves)
+        return Pawn(
+            self.player, self.current_position, False
+        )  # en-passant right lasts for only one turn
 
 
 class Bishop(ChessPiece):
     def __init__(
-        self, player: "ChessPlayer", current_position: tuple[int, int], moves: int = 0
+        self, player: "ChessPlayer", current_position: tuple[int, int]
     ) -> None:
-        super().__init__(player, current_position, moves)
+        super().__init__(player, current_position)
         self.notation = ChessPieceNotation.BISHOP
         self.symbol = "♗" if self.player.type == ChessPlayerType.WHITE else "♝"
         self.make_hash()
@@ -285,14 +286,14 @@ class Bishop(ChessPiece):
         return possible_moves
 
     def copy(self) -> ChessPiece:
-        return Bishop(self.player, self.current_position, self.moves)
+        return Bishop(self.player, self.current_position)
 
 
 class Knight(ChessPiece):
     def __init__(
-        self, player: "ChessPlayer", current_position: tuple[int, int], moves: int = 0
+        self, player: "ChessPlayer", current_position: tuple[int, int]
     ) -> None:
-        super().__init__(player, current_position, moves)
+        super().__init__(player, current_position)
         self.notation = ChessPieceNotation.KNIGHT
         self.symbol = "♘" if self.player.type == ChessPlayerType.WHITE else "♞"
         self.make_hash()
@@ -353,14 +354,18 @@ class Knight(ChessPiece):
         return possible_moves
 
     def copy(self) -> ChessPiece:
-        return Knight(self.player, self.current_position, self.moves)
+        return Knight(self.player, self.current_position)
 
 
 class Rook(ChessPiece):
     def __init__(
-        self, player: "ChessPlayer", current_position: tuple[int, int], moves: int = 0
+        self,
+        player: "ChessPlayer",
+        current_position: tuple[int, int],
+        can_castle: bool = True,
     ) -> None:
-        super().__init__(player, current_position, moves)
+        super().__init__(player, current_position)
+        self.can_castle = can_castle
         self.notation = ChessPieceNotation.ROOK
         self.symbol = "♖" if self.player.type == ChessPlayerType.WHITE else "♜"
         self.make_hash()
@@ -415,14 +420,14 @@ class Rook(ChessPiece):
         return possible_moves
 
     def copy(self) -> ChessPiece:
-        return Rook(self.player, self.current_position, self.moves)
+        return Rook(self.player, self.current_position, self.can_castle)
 
 
 class Queen(ChessPiece):
     def __init__(
-        self, player: "ChessPlayer", current_position: tuple[int, int], moves: int = 0
+        self, player: "ChessPlayer", current_position: tuple[int, int]
     ) -> None:
-        super().__init__(player, current_position, moves)
+        super().__init__(player, current_position)
         self.notation = ChessPieceNotation.QUEEN
         self.symbol = "♕" if self.player.type == ChessPlayerType.WHITE else "♛"
         self.make_hash()
@@ -481,14 +486,18 @@ class Queen(ChessPiece):
         return possible_moves
 
     def copy(self) -> ChessPiece:
-        return Queen(self.player, self.current_position, self.moves)
+        return Queen(self.player, self.current_position)
 
 
 class King(ChessPiece):
     def __init__(
-        self, player: "ChessPlayer", current_position: tuple[int, int], moves: int = 0
+        self,
+        player: "ChessPlayer",
+        current_position: tuple[int, int],
+        can_castle: bool = True,
     ) -> None:
-        super().__init__(player, current_position, moves)
+        super().__init__(player, current_position)
+        self.can_castle = can_castle
         self.notation = ChessPieceNotation.KING
         self.symbol = "♔" if self.player.type == ChessPlayerType.WHITE else "♚"
         self.make_hash()
@@ -531,28 +540,25 @@ class King(ChessPiece):
         add_col: int,
         add_col_direction: int,
     ) -> bool:
-        if self.moves > 0:
+        if not self.can_castle:
             return False
 
         current_idx_row, current_idx_col = self.current_position
         position_notation = chess_utils.position_to_notation[
             (current_idx_row, current_idx_col + add_col * add_col_direction)
         ]
-        board_piece = state.board.get(position_notation)
+        rook = state.board.get(position_notation)
 
-        if not board_piece:
+        if not rook:
             return False
 
-        if board_piece.moves > 0:
+        if not isinstance(rook, Rook):
             return False
 
-        # Should not happen
-        if board_piece.notation != ChessPieceNotation.ROOK:
-            raise Exception(
-                "Invalid board position. Rook not found at the expected square"
-            )
+        if not rook.can_castle:
+            return False
 
-        # Where the king will pass through. Must not be a place in check
+        # Where the king will pass through, including where it is. Must not be a place in check
         for idx_col in range(
             current_idx_col, current_idx_col + 3 * add_col_direction, add_col_direction
         ):
@@ -607,4 +613,4 @@ class King(ChessPiece):
         return possible_moves
 
     def copy(self) -> ChessPiece:
-        return King(self.player, self.current_position, self.moves)
+        return King(self.player, self.current_position, self.can_castle)
