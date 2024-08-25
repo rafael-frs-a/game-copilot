@@ -2,6 +2,7 @@ import typing as t
 from functools import cache
 from src import utils
 from src.games import commons
+from src.engines.alphazero.game import AlphaZeroGame
 from src.games.chess import pieces as chess_pieces
 from src.games.chess import utils as chess_utils
 from src.games.chess.players import ChessPlayer
@@ -9,7 +10,7 @@ from src.games.chess.state import ChessState
 from src.games.chess.commons import ChessPlayerType
 
 
-class Chess(commons.Game):
+class Chess(commons.Game, AlphaZeroGame):
     def setup(self) -> None:
         board: dict[str, chess_pieces.ChessPiece] = {}
         white = ChessPlayer(ChessPlayerType.WHITE)
@@ -179,7 +180,10 @@ class Chess(commons.Game):
         current_player_idx = state.get_next_player_idx()
         current_player = t.cast(ChessPlayer, state.players[current_player_idx])
 
-        if move in {"O-O", "O-O-O"}:
+        if move in {
+            chess_pieces.Castling.KINGSIDE.value,
+            chess_pieces.Castling.QUEENSIDE.value,
+        }:
             king_moves = current_player.king.generate_possible_moves(state)
 
             if move not in king_moves:
@@ -187,7 +191,7 @@ class Chess(commons.Game):
 
             king_idx_row, king_idx_col = current_player.king.current_position
 
-            if move == "O-O":
+            if move == chess_pieces.Castling.KINGSIDE.value:
                 rook_idx_col = 7
                 new_king_idx_col = king_idx_col + 2
                 new_rook_idx_col = new_king_idx_col - 1
@@ -321,3 +325,82 @@ class Chess(commons.Game):
 
             self._current_state = t.cast(ChessState, result.data)
             break
+
+    # AlphaZero methods
+    @property
+    def input_tensor_dimensions(self) -> tuple[int, int, int]:
+        # The dimensions are, in order:
+        # 1. Board height
+        # 2. Board width
+        # 3. 19 binary boards representing:
+        #    1. White pawns
+        #    2. White bishops
+        #    3. White knights
+        #    4. White rooks
+        #    5. White queens (there might be more than one with promotion)
+        #    6. White king
+        #    7. Black pawns
+        #    8. Black bishops
+        #    9. Black knights
+        #    10. Black rooks
+        #    11. Black queens (there might be more than one with promotion)
+        #    12. Black king
+        #    13. Next player (the one that will change the current state)
+        #    14. White can castle kingside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    15. White can castle queenside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    16. Black can castle kingside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    17. Black can castle queenside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    18. Board indicating on which square an en-passant capture is possible
+        #    19. No progress move count (used in 50-move draw rule. Not binary like the others)
+        return (8, 8, 19)
+
+    @cache
+    def generate_all_possible_moves(self) -> list[str]:
+        result: list[str] = []
+
+        white = ChessPlayer(ChessPlayerType.WHITE)
+        black = ChessPlayer(ChessPlayerType.BLACK)
+        players = [white, black]
+        state = ChessState({}, players, 1)
+        # Pieces' moves are the same for whites and blacks, except pawns
+        piece_classes_player = [
+            (chess_pieces.Pawn, white),
+            (chess_pieces.Pawn, black),
+            (chess_pieces.Bishop, white),
+            (chess_pieces.Knight, white),
+            (chess_pieces.Rook, white),
+            (chess_pieces.Queen, white),
+            (chess_pieces.King, white),
+        ]
+
+        for piece_class, player in piece_classes_player:
+            piece = piece_class(player, (0, 0))
+
+            for idx_col in range(8):
+                row_range = range(8)
+
+                if isinstance(piece, chess_pieces.Pawn):
+                    piece.force_capture = True
+                    row_range = range(
+                        piece.initial_row_idx,
+                        piece.promotion_row_idx,
+                        piece.direction,
+                    )
+                elif isinstance(piece, chess_pieces.King):
+                    piece.can_castle = False
+
+                for idx_row in row_range:
+                    piece.current_position = (idx_row, idx_col)
+                    state.board = {piece.current_position_notation: piece}
+                    state.make_hash()  # Needs to remake hash because `piece.generate_possible_moves` is cached on state
+                    possible_moves = piece.generate_possible_moves(state)
+                    result.extend(possible_moves)
+
+        result.extend(
+            [
+                chess_pieces.Castling.KINGSIDE.value,
+                chess_pieces.Castling.QUEENSIDE.value,
+            ]
+        )
+        result.sort()
+        return result

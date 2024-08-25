@@ -2,6 +2,7 @@ import typing as t
 from functools import cache
 from src import utils
 from src.games import commons
+from src.engines.alphazero.game import AlphaZeroGame
 
 
 class TicTacToePlayer(commons.Player):
@@ -57,7 +58,7 @@ class TicTacToeState(commons.GameState):
         )
 
 
-class TicTacToe(commons.Game):
+class TicTacToe(commons.Game, AlphaZeroGame):
     def setup(self) -> None:
         # Initial state of game's board
         # `None` `None` `None`
@@ -220,3 +221,19 @@ class TicTacToe(commons.Game):
 
             self._current_state = t.cast(TicTacToeState, result.data)
             break
+
+    # AlphaZero methods
+    @property
+    def input_tensor_dimensions(self) -> tuple[int, int, int]:
+        # The dimensions are, in order:
+        # 1. Board height
+        # 2. Board width
+        # 3. Three binary boards representing:
+        #    1. The "X" squares
+        #    2. The "O" squares
+        #    3. The next player (the one that will change the current state)
+        return (3, 3, 3)
+
+    @cache
+    def generate_all_possible_moves(self) -> list[str]:
+        return [str(_) for _ in range(1, 10)]

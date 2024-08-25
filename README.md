@@ -14,6 +14,8 @@ For action suggestion, it currently implements the following engines:
 
 Note: although theoretically useful, MCTS is not usable with the current implementation of chess, as it would take several hours to suggest one good move.
 
+To start the copilot run `python main.py`. The provided inputs are stored in a `history.txt` file at the root.
+
 # Stack
 
 The project uses the following technologies:

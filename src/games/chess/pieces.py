@@ -21,6 +21,11 @@ class ChessPieceNotation(Enum):
     KING = "K"
 
 
+class Castling(Enum):
+    KINGSIDE = "O-O"
+    QUEENSIDE = "O-O-O"
+
+
 ALL_CHESS_PIECES_NOTATIONS = {
     ChessPieceNotation.PAWN.value,
     ChessPieceNotation.BISHOP.value,
@@ -113,9 +118,13 @@ class Pawn(ChessPiece):
         player: "ChessPlayer",
         current_position: tuple[int, int],
         en_passant: bool = False,
+        force_capture: bool = False,
     ) -> None:
         super().__init__(player, current_position)
         self.en_passant = en_passant
+        self.force_capture = (
+            force_capture  # Used when calculating all possible moves for AlphaZero
+        )
         self.notation = ChessPieceNotation.PAWN
         self.symbol = "♙" if self.player.type == ChessPlayerType.WHITE else "♟"
         self.direction = -1 if self.player.type == ChessPlayerType.WHITE else 1
@@ -187,22 +196,21 @@ class Pawn(ChessPiece):
 
         controlled_squares = self._get_controlled_squares(self.current_position)
 
-        for idx_row, idx_col in controlled_squares:
+        def can_capture(idx_row: int, idx_col: int) -> bool:
+            if self.force_capture:
+                return True
+
             position_notation = chess_utils.position_to_notation[(idx_row, idx_col)]
             board_piece = state.board.get(position_notation)
 
             if board_piece:
-                # Capture
-                if board_piece.player != self.player:
-                    # Should not happen
-                    if board_piece.notation == ChessPieceNotation.KING:
-                        raise Exception(
-                            "Invalid board position. Cannot capture the king"
-                        )
+                if board_piece.player == self.player:
+                    return False
 
-                    possible_moves |= self._make_piece_move_commands(idx_row, idx_col)
+                if board_piece.notation == ChessPieceNotation.KING:
+                    raise Exception("Invalid board position. Cannot capture the king")
 
-                continue
+                return True
 
             # Check for en-passant
             position_notation = chess_utils.position_to_notation[
@@ -211,13 +219,16 @@ class Pawn(ChessPiece):
             board_piece = state.board.get(position_notation)
 
             if not board_piece:
-                continue
+                return False
 
             if board_piece.player == self.player or not isinstance(board_piece, Pawn):
-                continue
+                return False
 
-            if board_piece.en_passant:
-                possible_moves.add(self.make_piece_move_command((idx_row, idx_col)))
+            return board_piece.en_passant
+
+        for idx_row, idx_col in controlled_squares:
+            if can_capture(idx_row, idx_col):
+                possible_moves |= self._make_piece_move_commands(idx_row, idx_col)
 
         return possible_moves
 
@@ -605,10 +616,10 @@ class King(ChessPiece):
                 possible_moves.add(self.make_piece_move_command((idx_row, idx_col)))
 
         if self._can_castle(state, 3, 1):
-            possible_moves.add("O-O")
+            possible_moves.add(Castling.KINGSIDE.value)
 
         if self._can_castle(state, 4, -1):
-            possible_moves.add("O-O-O")
+            possible_moves.add(Castling.QUEENSIDE.value)
 
         return possible_moves
 
