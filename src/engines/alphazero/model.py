@@ -1,4 +1,6 @@
+import os
 import torch
+from functools import cached_property
 from torch import nn
 from torch.nn import functional as F
 from src.engines.alphazero import utils as alphazero_utils
@@ -64,6 +66,8 @@ class GameNet(nn.Module):
         # Move the model to the specified device
         self.to(self.device)
 
+        self.load_weights()
+
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through the model.
@@ -85,6 +89,25 @@ class GameNet(nn.Module):
         value = self.value_head(x)
 
         return policy, value
+
+    @cached_property
+    def file_path(self) -> str:
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        return os.path.join(
+            current_dir, "trained-weights", self.game.__class__.__name__, "weights.pth"
+        )
+
+    def load_weights(self) -> None:
+        if os.path.exists(self.file_path):
+            self.load_state_dict(torch.load(self.file_path))
+
+    def save_weights(self) -> None:
+        directory = os.path.dirname(self.file_path)
+
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+
+        torch.save(self.state_dict(), self.file_path)
 
 
 class ResBlock(nn.Module):
