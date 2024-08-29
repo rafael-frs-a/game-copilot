@@ -1,5 +1,7 @@
 import typing as t
+import numpy as np
 from functools import cache
+from numpy import typing as npt
 from src import utils
 from src.games import commons
 from src.engines.alphazero.game import AlphaZeroGame
@@ -10,7 +12,7 @@ from src.games.chess.state import ChessState
 from src.games.chess.commons import ChessPlayerType
 
 
-class Chess(commons.Game, AlphaZeroGame):
+class Chess(AlphaZeroGame):
     def setup(self) -> None:
         board: dict[str, chess_pieces.ChessPiece] = {}
         white = ChessPlayer(ChessPlayerType.WHITE)
@@ -102,12 +104,13 @@ class Chess(commons.Game, AlphaZeroGame):
         piece: chess_pieces.ChessPiece,
         next_position: tuple[int, int],
         promoted_piece_notation: t.Optional[str] = None,
-        increase_moves_without_progress: bool = True,
+        increase_moves: bool = True,
     ) -> ChessState:
         new_state = t.cast(ChessState, state.copy())
         new_state.current_player_idx = current_player_idx
         current_player = t.cast(ChessPlayer, new_state.current_player)
-        new_state.moves_without_progress += increase_moves_without_progress
+        new_state.moves_without_progress += increase_moves
+        new_state.moves += increase_moves
 
         # Remove piece from the board
         old_idx_row, old_idx_col = piece.current_position
@@ -209,7 +212,7 @@ class Chess(commons.Game, AlphaZeroGame):
                 current_player_idx,
                 current_player.king,
                 (king_idx_row, new_king_idx_col),
-                increase_moves_without_progress=False,
+                increase_moves=False,
             )
             new_state = self._make_new_state(
                 new_state,
@@ -330,32 +333,33 @@ class Chess(commons.Game, AlphaZeroGame):
     @property
     def input_tensor_dimensions(self) -> tuple[int, int, int]:
         # The dimensions are, in order:
-        # 1. Board height
-        # 2. Board width
-        # 3. 19 binary boards representing:
+        # 1. 20 binary boards representing:
         #    1. White pawns
         #    2. White bishops
         #    3. White knights
         #    4. White rooks
         #    5. White queens (there might be more than one with promotion)
         #    6. White king
-        #    7. Black pawns
-        #    8. Black bishops
-        #    9. Black knights
-        #    10. Black rooks
-        #    11. Black queens (there might be more than one with promotion)
-        #    12. Black king
-        #    13. Next player (the one that will change the current state)
-        #    14. White can castle kingside (only checks if the king and rook have not been moved, not if the king is in check)
-        #    15. White can castle queenside (only checks if the king and rook have not been moved, not if the king is in check)
-        #    16. Black can castle kingside (only checks if the king and rook have not been moved, not if the king is in check)
-        #    17. Black can castle queenside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    7. White can castle kingside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    8. White can castle queenside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    9. Black pawns
+        #    10. Black bishops
+        #    11. Black knights
+        #    12. Black rooks
+        #    13. Black queens (there might be more than one with promotion)
+        #    14. Black king
+        #    15. Black can castle kingside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    16. Black can castle queenside (only checks if the king and rook have not been moved, not if the king is in check)
+        #    17. Next player (the one that will change the current state)
         #    18. Board indicating on which square an en-passant capture is possible
         #    19. No progress move count (used in 50-move draw rule. Not binary like the others)
-        return (8, 8, 19)
+        #    20. Move count (used to force finish long matches on AlphaZero MCTS)
+        # 2. Board height
+        # 3. Board width
+        return (20, 8, 8)
 
     @cache
-    def generate_all_possible_moves(self) -> list[str]:
+    def generate_all_possible_moves(self) -> npt.NDArray[np.str_]:
         result: list[str] = []
 
         white = ChessPlayer(ChessPlayerType.WHITE)
@@ -403,4 +407,63 @@ class Chess(commons.Game, AlphaZeroGame):
             ]
         )
         result.sort()
-        return result
+        return np.array(result)
+
+    ALPHAZERO_INPUT_CHANNEL_MAP = {
+        "♙": 0,
+        "♗": 1,
+        "♘": 2,
+        "♖": 3,
+        "♕": 4,
+        "♔": 5,
+        "♟": 8,
+        "♝": 9,
+        "♞": 10,
+        "♜": 11,
+        "♛": 12,
+        "♚": 13,
+    }
+
+    @cache
+    def make_state_input_tensor(
+        self, state: commons.GameState
+    ) -> npt.NDArray[np.float32]:
+        state = t.cast(ChessState, state)
+        tensor = np.zeros(self.input_tensor_dimensions).astype(np.float32)
+        en_passant_pawn: t.Optional[chess_pieces.Pawn] = None
+
+        for piece in state.board.values():
+            input_channel = self.ALPHAZERO_INPUT_CHANNEL_MAP[piece.symbol]
+            idx_row, idx_col = piece.current_position
+            tensor[input_channel, idx_row, idx_col] = 1
+
+            if isinstance(piece, chess_pieces.Pawn) and piece.en_passant:
+                en_passant_pawn = piece
+
+        white = t.cast(ChessPlayer, state.players[0])
+        black = t.cast(ChessPlayer, state.players[1])
+
+        if white.king.can_castle_king_side(state):
+            tensor[6] = 1
+
+        if white.king.can_castle_queen_side(state):
+            tensor[7] = 1
+
+        if black.king.can_castle_king_side(state):
+            tensor[14] = 1
+
+        if black.king.can_castle_queen_side(state):
+            tensor[15] = 1
+
+        next_player = t.cast(ChessPlayer, state.get_next_player())
+
+        if next_player == black:
+            tensor[16] = 1
+
+        if en_passant_pawn:
+            idx_row, idx_col = en_passant_pawn.current_position
+            tensor[17, idx_row, idx_col] = 1
+
+        tensor[18] = state.moves_without_progress
+        tensor[19] = state.moves
+        return tensor

@@ -1,5 +1,7 @@
+import numpy as np
 import typing as t
 from functools import cache
+from numpy import typing as npt
 from src import utils
 from src.games import commons
 from src.engines.alphazero.game import AlphaZeroGame
@@ -58,7 +60,7 @@ class TicTacToeState(commons.GameState):
         )
 
 
-class TicTacToe(commons.Game, AlphaZeroGame):
+class TicTacToe(AlphaZeroGame):
     def setup(self) -> None:
         # Initial state of game's board
         # `None` `None` `None`
@@ -226,14 +228,35 @@ class TicTacToe(commons.Game, AlphaZeroGame):
     @property
     def input_tensor_dimensions(self) -> tuple[int, int, int]:
         # The dimensions are, in order:
-        # 1. Board height
-        # 2. Board width
-        # 3. Three binary boards representing:
+        # 1. Three binary boards representing:
         #    1. The "X" squares
         #    2. The "O" squares
         #    3. The next player (the one that will change the current state)
+        # 2. Board height
+        # 3. Board width
         return (3, 3, 3)
 
     @cache
-    def generate_all_possible_moves(self) -> list[str]:
-        return [str(_) for _ in range(1, 10)]
+    def generate_all_possible_moves(self) -> npt.NDArray[np.str_]:
+        return np.array([str(_) for _ in range(1, 10)])
+
+    # Player "X" in channel 0, and player "O" in channel 1
+    ALPHAZERO_INPUT_CHANNEL_MAP = {"X": 0, "O": 1}
+
+    @cache
+    def make_state_input_tensor(
+        self, state: commons.GameState
+    ) -> npt.NDArray[np.float32]:
+        state = t.cast(TicTacToeState, state)
+        tensor = np.zeros(self.input_tensor_dimensions).astype(np.float32)
+
+        for idx_row, row in enumerate(state.board):
+            for idx_col, cell in enumerate(row):
+                if cell:
+                    tensor[
+                        self.ALPHAZERO_INPUT_CHANNEL_MAP[cell.symbol], idx_row, idx_col
+                    ] = 1
+
+        next_player = t.cast(TicTacToePlayer, state.get_next_player())
+        tensor[2] = self.ALPHAZERO_INPUT_CHANNEL_MAP[next_player.symbol]
+        return tensor

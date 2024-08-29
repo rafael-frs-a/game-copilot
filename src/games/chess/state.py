@@ -12,6 +12,7 @@ class ChessState(commons.GameState):
         players: list[ChessPlayer],
         current_player_idx: int,
         winner: t.Optional[ChessPlayer] = None,
+        moves: int = 0,
         moves_without_progress: int = 0,
         squares_in_check: t.Optional[dict[ChessPlayer, set[tuple[int, int]]]] = None,
     ) -> None:
@@ -19,6 +20,7 @@ class ChessState(commons.GameState):
         self.players = t.cast(list[commons.Player], players)
         self.current_player_idx = current_player_idx
         self.winner = winner
+        self.moves = moves
         self.moves_without_progress = moves_without_progress
 
         if squares_in_check:
@@ -58,6 +60,7 @@ class ChessState(commons.GameState):
             t.cast(
                 t.Optional[ChessPlayer], self.winner
             ),  # No need to copy the winner, since it's used to determine terminal states
+            self.moves,
             self.moves_without_progress,
             squares_in_check,
         )

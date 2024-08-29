@@ -150,8 +150,9 @@ class MCTS(commons.Engine):
             current_node.update(winner)
             current_node = current_node.parent
 
-    def suggest_move(self) -> None:
+    def search(self) -> Node:
         root_node = Node("", self.game.current_state, None)
+        self.expand(root_node)
 
         for _ in range(self.iterations):
             node = root_node
@@ -160,18 +161,16 @@ class MCTS(commons.Engine):
                 node = self.ucb_select(node)
 
             if not self.game.is_terminal(node.state):
-                # We want to simulate a game for every node before expanding it, except the root node
-                if node.visits > 0 or node == root_node:
+                # We want to simulate a game for every node before expanding it
+                if node.visits > 0:
                     node = self.expand(node)
 
             winner = self.simulate(node)
             self.backpropagate(node, winner)
 
-        default_child = Node("None", root_node.state, root_node)
-        best_child = max(
-            root_node.children,
-            key=lambda child_node: child_node.visits,
-            default=default_child,  # Used in case the number of iterations is zero
-        )
+        return max(root_node.children, key=lambda child_node: child_node.visits)
+
+    def suggest_move(self) -> None:
+        best_child = self.search()
         chances = (best_child.wins / best_child.visits) if best_child.visits > 0 else 0
         print(f"Suggested move: {best_child.move}. Winning chances: {chances}")

@@ -3,7 +3,7 @@ import torch
 from functools import cached_property
 from torch import nn
 from torch.nn import functional as F
-from src.engines.alphazero import utils as alphazero_utils
+from src.engines.alphazero import constants
 from src.engines.alphazero.game import AlphaZeroGame
 
 
@@ -15,8 +15,7 @@ class GameNet(nn.Module):
         self.game = game
         self.num_res_blocks = num_res_blocks
         self.num_hidden = num_hidden
-        self.device = alphazero_utils.get_device()
-        board_height, board_width, num_board_planes = self.game.input_tensor_dimensions
+        num_board_planes, board_height, board_width = self.game.input_tensor_dimensions
         all_game_moves = self.game.generate_all_possible_moves()
 
         # Initial convolutional block to process the game input
@@ -43,7 +42,7 @@ class GameNet(nn.Module):
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(
-                self.num_hidden * board_width * board_height,
+                self.num_hidden * board_height * board_width,
                 len(all_game_moves),
             ),
             nn.LogSoftmax(
@@ -57,14 +56,14 @@ class GameNet(nn.Module):
             nn.BatchNorm2d(self.num_hidden // 2),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(self.num_hidden // 2 * board_width * board_height, 64),
+            nn.Linear(self.num_hidden // 2 * board_height * board_width, 64),
             nn.ReLU(),
             nn.Linear(64, 1),
             nn.Tanh(),  # Output a scalar value between -1 and 1
         )
 
         # Move the model to the specified device
-        self.to(self.device)
+        self.to(constants.DEVICE)
 
         self.load_weights()
 
@@ -94,12 +93,17 @@ class GameNet(nn.Module):
     def file_path(self) -> str:
         current_dir = os.path.dirname(os.path.realpath(__file__))
         return os.path.join(
-            current_dir, "trained-weights", self.game.__class__.__name__, "weights.pth"
+            current_dir,
+            constants.PROGRESS_FOLDER,
+            self.game.__class__.__name__,
+            "weights.pth",
         )
 
     def load_weights(self) -> None:
         if os.path.exists(self.file_path):
-            self.load_state_dict(torch.load(self.file_path))
+            self.load_state_dict(
+                torch.load(self.file_path, map_location=constants.DEVICE)
+            )
 
     def save_weights(self) -> None:
         directory = os.path.dirname(self.file_path)

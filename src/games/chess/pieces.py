@@ -591,6 +591,12 @@ class King(ChessPiece):
 
         return True
 
+    def can_castle_king_side(self, state: "ChessState") -> bool:
+        return self._can_castle(state, 3, 1)
+
+    def can_castle_queen_side(self, state: "ChessState") -> bool:
+        return self._can_castle(state, 4, -1)
+
     @cache
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
@@ -615,10 +621,10 @@ class King(ChessPiece):
 
                 possible_moves.add(self.make_piece_move_command((idx_row, idx_col)))
 
-        if self._can_castle(state, 3, 1):
+        if self.can_castle_king_side(state):
             possible_moves.add(Castling.KINGSIDE.value)
 
-        if self._can_castle(state, 4, -1):
+        if self.can_castle_queen_side(state):
             possible_moves.add(Castling.QUEENSIDE.value)
 
         return possible_moves

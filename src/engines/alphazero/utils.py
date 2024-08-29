@@ -1,8 +1,8 @@
-import torch
 import typing as t
-from functools import cache
+import torch
+from numpy import typing as npt
+from . import constants
 
 
-@cache
-def get_device() -> t.Literal["cpu", "cuda"]:
-    return "cuda" if torch.cuda.is_available() else "cpu"
+def make_torch_tensor(array: npt.NDArray[t.Any]) -> torch.Tensor:
+    return torch.Tensor(array, device=constants.DEVICE)
