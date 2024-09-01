@@ -25,12 +25,14 @@ class TicTacToeState(commons.GameState):
         players: list[commons.Player],
         current_player_idx: int,
         winner: t.Optional[TicTacToePlayer] = None,
+        move_count: int = 0,
     ) -> None:
         self.board = board
         self.totals = totals
         self.players = players
         self.current_player_idx = current_player_idx
         self.winner = winner
+        self.move_count = move_count
         self.make_hash()
 
     def make_hash(self) -> None:
@@ -57,6 +59,7 @@ class TicTacToeState(commons.GameState):
             self.players,
             self.current_player_idx,
             t.cast(t.Optional[TicTacToePlayer], self.winner),
+            self.move_count,
         )
 
 
@@ -162,6 +165,7 @@ class TicTacToe(AlphaZeroGame):
 
         new_state = t.cast(TicTacToeState, state.copy())
         new_state.current_player_idx = state.get_next_player_idx()
+        new_state.move_count += 1
         self._update_state(new_state, idx_row, idx_col)
         new_state.make_hash()
         return commons.Result(new_state)

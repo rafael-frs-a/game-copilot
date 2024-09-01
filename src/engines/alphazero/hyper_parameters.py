@@ -18,6 +18,10 @@ class HyperParameters:
     mcts_puct_constant: float = 1.41
     dirichlet_noise_alpha: float = 0.3
     dirichlet_noise_epsilon: float = 0.25
+    num_learning_iterations: int = 1_000
+    num_self_play_games: int = 1_000
+    num_epochs: int = 10
+    batch_size: int = 256
     temperature: float = 1.0
     max_game_moves: int = 100
 

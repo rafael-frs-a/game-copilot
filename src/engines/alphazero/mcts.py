@@ -34,17 +34,8 @@ class Node:
         self.children.append(child_node)
         return child_node
 
-    def update(
-        self, winner: t.Optional[games_commons.Player], reward: t.Optional[float]
-    ) -> None:
+    def update(self, reward: float) -> None:
         self.visits += 1
-
-        if reward is None:
-            reward = 0.0  # tie/draw
-
-            if winner:
-                reward = 1.0 if winner == self.state.current_player else -1.0
-
         self.reward += reward
 
 
@@ -95,7 +86,7 @@ class MCTS:
 
         valid_moves = self.game.generate_possible_moves(node.state)
         valid_moves_map: dict[str, games_commons.GameState] = dict(valid_moves)
-        valid_moves_array = np.array(list(valid_moves_map.keys()))
+        valid_moves_array = np.array([valid_move for valid_move in valid_moves_map])
         valid_mask = np.isin(self.all_game_moves, valid_moves_array)
         policy_array[~valid_mask] = 0  # Zero out invalid moves
         policy_array /= np.sum(
@@ -119,15 +110,38 @@ class MCTS:
         value: t.Optional[float],
     ) -> None:
         current_node: t.Optional[Node] = node
+        original_player = node.state.current_player
+
+        if value is None:
+            # Since the MCTS is not simulating games to a terminal state
+            # it should never happen that the winner, if there is one,
+            # is different from the node's current player, ie a defeat, only win or draw.
+            value = 1.0 if winner else 0.0
+
+            # However, we need to get the value from the perspective of the previous player,
+            # the parent node's state, since, in AlphaZero MCTS, the value from a node's state
+            # is used to update its children, not itself
+
+            # Should always have a parent. Just doing this so mypy doesn't complain
+            if node.parent:
+                value = self.game.get_state_value(
+                    node.parent.state, original_player, value
+                )
 
         while current_node:
-            current_node.update(winner, value)
+            current_node.update(
+                self.game.get_state_value(current_node.state, original_player, value)
+            )
             current_node = current_node.parent
 
     @torch.no_grad()
-    def search(self) -> npt.NDArray[np.float32]:
+    def search(self) -> tuple[npt.NDArray[np.float32], float]:
         root_node = Node(-1, self.game.current_state, None)
-        root_policy, _ = self.expand(root_node)
+        root_policy, root_value = self.expand(root_node)
+
+        if self.hyper_parameters.mcts_num_iterations == 0:
+            # This could be used when the model is trained and we want to test playing it without MCTS
+            return root_policy, root_value
 
         for _ in range(self.hyper_parameters.mcts_num_iterations):
             node = root_node
@@ -144,14 +158,10 @@ class MCTS:
 
             self.backpropagate(node, winner, value)
 
-        if self.hyper_parameters.mcts_num_iterations == 0:
-            # This could be used when the model is trained and we want to skip any extra MCTS search
-            return root_policy
-
         move_probs = np.zeros(len(self.all_game_moves)).astype(np.float32)
 
         for child in root_node.children:
             move_probs[child.move_idx] = child.visits
 
         move_probs /= np.sum(move_probs)
-        return move_probs
+        return move_probs, root_value

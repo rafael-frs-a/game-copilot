@@ -109,8 +109,8 @@ class Chess(AlphaZeroGame):
         new_state = t.cast(ChessState, state.copy())
         new_state.current_player_idx = current_player_idx
         current_player = t.cast(ChessPlayer, new_state.current_player)
-        new_state.moves_without_progress += increase_moves
-        new_state.moves += increase_moves
+        new_state.move_count_no_progress += increase_moves
+        new_state.move_count += increase_moves
 
         # Remove piece from the board
         old_idx_row, old_idx_col = piece.current_position
@@ -165,7 +165,7 @@ class Chess(AlphaZeroGame):
             captured_piece.player.remove_piece(captured_piece)
 
         if piece.notation == chess_pieces.ChessPieceNotation.PAWN or captured_piece:
-            new_state.moves_without_progress = 0
+            new_state.move_count_no_progress = 0
 
         # Move piece
         new_state.board[new_position_notation] = new_piece
@@ -285,7 +285,7 @@ class Chess(AlphaZeroGame):
         if state.winner:
             return possible_moves
 
-        if state.moves_without_progress >= 50:
+        if state.move_count_no_progress >= 50:
             return possible_moves
 
         next_player = t.cast(ChessPlayer, state.players[state.get_next_player_idx()])
@@ -464,6 +464,6 @@ class Chess(AlphaZeroGame):
             idx_row, idx_col = en_passant_pawn.current_position
             tensor[17, idx_row, idx_col] = 1
 
-        tensor[18] = state.moves_without_progress
-        tensor[19] = state.moves
+        tensor[18] = state.move_count_no_progress
+        tensor[19] = state.move_count
         return tensor

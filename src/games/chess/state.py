@@ -12,16 +12,16 @@ class ChessState(commons.GameState):
         players: list[ChessPlayer],
         current_player_idx: int,
         winner: t.Optional[ChessPlayer] = None,
-        moves: int = 0,
-        moves_without_progress: int = 0,
+        move_count: int = 0,
+        move_count_no_progress: int = 0,
         squares_in_check: t.Optional[dict[ChessPlayer, set[tuple[int, int]]]] = None,
     ) -> None:
         self.board = board
         self.players = t.cast(list[commons.Player], players)
         self.current_player_idx = current_player_idx
         self.winner = winner
-        self.moves = moves
-        self.moves_without_progress = moves_without_progress
+        self.move_count = move_count
+        self.move_count_no_progress = move_count_no_progress
 
         if squares_in_check:
             self.squares_in_check = squares_in_check
@@ -36,7 +36,7 @@ class ChessState(commons.GameState):
 
         state = "".join(sorted(pieces))
         state += t.cast(ChessPlayer, self.current_player).type.value
-        state += str(self.moves_without_progress)
+        state += str(self.move_count_no_progress)
         self._hash = utils.make_hash_number(state)
 
     def copy(self) -> commons.GameState:
@@ -60,7 +60,7 @@ class ChessState(commons.GameState):
             t.cast(
                 t.Optional[ChessPlayer], self.winner
             ),  # No need to copy the winner, since it's used to determine terminal states
-            self.moves,
-            self.moves_without_progress,
+            self.move_count,
+            self.move_count_no_progress,
             squares_in_check,
         )

@@ -9,7 +9,7 @@ from src.engines.alphazero.game import AlphaZeroGame
 
 class GameNet(nn.Module):
     def __init__(
-        self, game: AlphaZeroGame, num_res_blocks: int = 10, num_hidden: int = 256
+        self, game: AlphaZeroGame, num_res_blocks: int, num_hidden: int
     ) -> None:
         super().__init__()
         self.game = game
@@ -56,9 +56,7 @@ class GameNet(nn.Module):
             nn.BatchNorm2d(self.num_hidden // 2),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(self.num_hidden // 2 * board_height * board_width, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1),
+            nn.Linear(self.num_hidden // 2 * board_height * board_width, 1),
             nn.Tanh(),  # Output a scalar value between -1 and 1
         )
 

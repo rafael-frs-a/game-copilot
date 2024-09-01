@@ -1,16 +1,11 @@
 import abc
-import typing as t
 import numpy as np
 from functools import cache
 from numpy import typing as npt
-from src.games.commons import GameState
+from src.games import commons as games_commons
 
 
-if t.TYPE_CHECKING:
-    from src.games.commons import Game
-
-
-class AlphaZeroGame(Game):
+class AlphaZeroGame(games_commons.Game):
     @property
     @abc.abstractmethod
     def input_tensor_dimensions(self) -> tuple[int, int, int]:
@@ -27,5 +22,17 @@ class AlphaZeroGame(Game):
 
     @cache
     @abc.abstractmethod
-    def make_state_input_tensor(self, state: GameState) -> npt.NDArray[np.float32]:
+    def make_state_input_tensor(
+        self, state: games_commons.GameState
+    ) -> npt.NDArray[np.float32]:
         pass
+
+    def get_state_value(
+        self, state: games_commons.GameState, player: games_commons.Player, value: float
+    ) -> float:
+        # This works for two players zero sum games, like tic-tac-toe and chess
+        # Other games might need a different approach
+        if player == state.current_player:
+            return value
+
+        return -value
