@@ -19,6 +19,7 @@ colorama==0.4.6
     #   build
     #   click
     #   ipython
+    #   tqdm
 decorator==5.1.1
     # via ipython
 executing==2.0.1
@@ -78,6 +79,8 @@ stack-data==0.6.3
 sympy==1.13.2
     # via torch
 torch==2.4.0
+    # via -r requirements.in
+tqdm==4.66.5
     # via -r requirements.in
 traitlets==5.14.3
     # via

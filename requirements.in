@@ -4,3 +4,4 @@ pip-tools
 ipython
 torch
 numpy<2  # Version 2 or higher is not compatible with PyTorch
+tqdm

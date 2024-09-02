@@ -5,6 +5,7 @@ import typing as t
 import numpy as np
 import torch
 from dataclasses import dataclass, asdict
+from src import utils
 from src.games.commons import Game
 from . import constants
 
@@ -22,7 +23,7 @@ class HyperParameters:
     num_self_play_games: int = 1_000
     num_epochs: int = 10
     batch_size: int = 256
-    temperature: float = 1.0
+    temperature: float = 1.0  # Temperature of 1 has no effect in move selection
     max_game_moves: int = 100
 
     @property
@@ -82,3 +83,201 @@ class HyperParameters:
             data = json.load(file)
 
         return HyperParameters(**data), False
+
+    def set_seed(self) -> None:
+        # Ask for numeric seed
+        # This allows deterministic reproducibility
+        # Inform nothing if we want to skip it
+        while True:
+            input_value = utils.prompt_input("Enter a numeric seed (optional): ")
+
+            if input_value == "":
+                break
+
+            try:
+                self.seed = int(input_value)
+                break
+            except ValueError:
+                print(
+                    "Invalid input. Please enter a valid number or press enter to skip this step"
+                )
+
+    def set_num_hidden_layers(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of hidden layers (optional, default {self.set_num_hidden_layers}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.num_hidden = int(input_value)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_num_res_blocks(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of residual blocks (optional, default {self.num_res_blocks}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.num_res_blocks = int(input_value)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_mcts_iterations(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of MCTS iterations (optional, default {self.mcts_num_iterations}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.mcts_num_iterations = max(0, int(input_value))
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_puct(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the PUCT constant (optional, default {self.mcts_puct_constant}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.mcts_puct_constant = float(input_value)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_dirichlet_alpha(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the Dirichlet noise alpha (optional, default {self.dirichlet_noise_alpha}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.dirichlet_noise_alpha = float(input_value)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_dirichlet_epsilon(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the Dirichlet noise epsilon (optional, default {self.dirichlet_noise_epsilon}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.dirichlet_noise_epsilon = float(input_value)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_num_learning_iterations(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of learning iterations (optional, default {self.num_learning_iterations}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.num_learning_iterations = max(0, int(input_value))
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_num_self_play_games(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of self play games (optional, default {self.num_self_play_games}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.num_self_play_games = max(0, int(input_value))
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_num_epochs(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of epochs (optional, default {self.num_epochs}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.num_epochs = max(0, int(input_value))
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_batch_size(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of batch size (optional, default {self.batch_size}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.batch_size = max(0, int(input_value))
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_temperature(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the move selection temperature (optional, default {self.temperature}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.temperature = float(input_value)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_max_game_moves(self) -> None:
+        while True:
+            input_value = utils.prompt_input(
+                f"Enter the number of max. moves per game (optional, default {self.max_game_moves}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.max_game_moves = max(0, int(input_value))
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")

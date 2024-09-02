@@ -467,3 +467,6 @@ class Chess(AlphaZeroGame):
         tensor[18] = state.move_count_no_progress
         tensor[19] = state.move_count
         return tensor
+
+    def apply_state(self, state: commons.GameState) -> None:
+        self._current_state = t.cast(ChessState, state)

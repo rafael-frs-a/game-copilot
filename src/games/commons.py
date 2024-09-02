@@ -26,6 +26,7 @@ class GameState(abc.ABC):
     players: list[Player]
     current_player_idx: int
     winner: t.Optional[Player]
+    move_count: int
 
     @abc.abstractmethod
     def make_hash(self) -> None:
