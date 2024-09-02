@@ -100,10 +100,12 @@ class GameNet(nn.Module):
     def load_weights(self) -> None:
         if os.path.exists(self.file_path):
             self.load_state_dict(
-                torch.load(self.file_path, map_location=constants.DEVICE)
+                torch.load(
+                    self.file_path, weights_only=True, map_location=constants.DEVICE
+                )
             )
 
-    def save_weights(self) -> None:
+    def save_state(self) -> None:
         directory = os.path.dirname(self.file_path)
 
         if directory:

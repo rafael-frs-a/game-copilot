@@ -11,7 +11,7 @@ from src.games.chess import Chess
 from src.engines.alphazero import utils as alphazero_utils
 from src.engines.alphazero.game import AlphaZeroGame
 from src.engines.alphazero.hyper_parameters import HyperParameters
-from src.engines.alphazero.optimizer import OptimizerWrapper
+from src.engines.alphazero.optimizer import Optimizer
 from src.engines.alphazero.mcts import MCTS
 from src.engines.alphazero.model import GameNet
 
@@ -43,7 +43,7 @@ class AlphaZeroTrainer:
         while True:
             try:
                 game = utils.prompt_input(
-                    f"Enter the game ({', '.join(game_options)}): "
+                    f"Enter the game ({', '.join(game_options)}): ", False
                 )
                 self.game = make_game(game)
                 break
@@ -52,6 +52,7 @@ class AlphaZeroTrainer:
 
     def load_hyperparameters(self) -> None:
         self.hyper_parameters, created = HyperParameters.load_from_file(self.game)
+        self.hyper_parameters.save_input_history = False
 
         if created:
             self.hyper_parameters.set_seed()
@@ -79,8 +80,7 @@ class AlphaZeroTrainer:
         )
 
     def load_optimizer(self) -> None:
-        self.optimizer_wrapper = OptimizerWrapper(self.model)
-        self.optimizer = self.optimizer_wrapper.optimizer
+        self.optimizer = Optimizer(self.model)
 
     def self_play(
         self,
@@ -122,8 +122,11 @@ class AlphaZeroTrainer:
 
         for state, player, move_probs in game_history:
             state_tensor = self.game.make_state_input_tensor(state)
-            value = 1.0 if winner else 0
-            value = self.game.get_state_value(state, player, value)
+            value = 0.0
+
+            if winner:
+                value = 1.0 if player == winner else -1.0
+
             result.append((state_tensor, move_probs, value))
 
         return result
@@ -184,8 +187,9 @@ class AlphaZeroTrainer:
                 self.train(memory)
 
     def save_progress(self) -> None:
-        self.model.save_weights()
-        self.optimizer_wrapper.save_state()
+        self.hyper_parameters.save_to_file(self.game)
+        self.model.save_state()
+        self.optimizer.save_state()
 
     def run(self) -> None:
         self.select_game()
@@ -200,7 +204,3 @@ class AlphaZeroTrainer:
             self.save_progress()
         except KeyboardInterrupt:
             self.save_progress()
-
-
-trainer = AlphaZeroTrainer()
-trainer.run()

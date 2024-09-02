@@ -1,0 +1,16 @@
+{
+  "_seed": 1,
+  "num_res_blocks": 4,
+  "num_hidden": 64,
+  "mcts_num_iterations": 800,
+  "mcts_puct_constant": 2.0,
+  "dirichlet_noise_alpha": 0.3,
+  "dirichlet_noise_epsilon": 0.25,
+  "num_learning_iterations": 10,
+  "num_self_play_games": 100,
+  "num_epochs": 4,
+  "batch_size": 64,
+  "temperature": 1.0,
+  "max_game_moves": 100,
+  "save_input_history": false
+}

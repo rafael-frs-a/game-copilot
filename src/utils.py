@@ -9,11 +9,14 @@ def clear_history_file() -> None:
         pass
 
 
-def prompt_input(message: str) -> str:
-    with open(HISTORY_FILE_PATH, "a") as file:
-        input_ = input(message)
-        file.writelines(input_ + "\n")
-        return input_.strip()
+def prompt_input(message: str, save_history: bool = True) -> str:
+    input_ = input(message).strip()
+
+    if save_history:
+        with open(HISTORY_FILE_PATH, "a") as file:
+            file.writelines(input_ + "\n")
+
+    return input_
 
 
 def make_hash_number(value: str) -> int:

@@ -25,6 +25,7 @@ class HyperParameters:
     batch_size: int = 256
     temperature: float = 1.0  # Temperature of 1 has no effect in move selection
     max_game_moves: int = 100
+    save_input_history: bool = True
 
     @property
     def seed(self) -> t.Optional[int]:
@@ -62,6 +63,9 @@ class HyperParameters:
             "hyper-parameters.json",
         )
 
+    def prompt_input(self, message: str) -> str:
+        return utils.prompt_input(message, self.save_input_history)
+
     def save_to_file(self, game: Game) -> None:
         file_path = self.make_file_path(game)
         directory = os.path.dirname(file_path)
@@ -89,7 +93,7 @@ class HyperParameters:
         # This allows deterministic reproducibility
         # Inform nothing if we want to skip it
         while True:
-            input_value = utils.prompt_input("Enter a numeric seed (optional): ")
+            input_value = self.prompt_input("Enter a numeric seed (optional): ")
 
             if input_value == "":
                 break
@@ -104,8 +108,8 @@ class HyperParameters:
 
     def set_num_hidden_layers(self) -> None:
         while True:
-            input_value = utils.prompt_input(
-                f"Enter the number of hidden layers (optional, default {self.set_num_hidden_layers}): "
+            input_value = self.prompt_input(
+                f"Enter the number of hidden layers (optional, default {self.num_hidden}): "
             )
 
             if not input_value:
@@ -119,7 +123,7 @@ class HyperParameters:
 
     def set_num_res_blocks(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the number of residual blocks (optional, default {self.num_res_blocks}): "
             )
 
@@ -134,7 +138,7 @@ class HyperParameters:
 
     def set_mcts_iterations(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the number of MCTS iterations (optional, default {self.mcts_num_iterations}): "
             )
 
@@ -149,7 +153,7 @@ class HyperParameters:
 
     def set_puct(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the PUCT constant (optional, default {self.mcts_puct_constant}): "
             )
 
@@ -164,7 +168,7 @@ class HyperParameters:
 
     def set_dirichlet_alpha(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the Dirichlet noise alpha (optional, default {self.dirichlet_noise_alpha}): "
             )
 
@@ -179,7 +183,7 @@ class HyperParameters:
 
     def set_dirichlet_epsilon(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the Dirichlet noise epsilon (optional, default {self.dirichlet_noise_epsilon}): "
             )
 
@@ -194,7 +198,7 @@ class HyperParameters:
 
     def set_num_learning_iterations(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the number of learning iterations (optional, default {self.num_learning_iterations}): "
             )
 
@@ -209,7 +213,7 @@ class HyperParameters:
 
     def set_num_self_play_games(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the number of self play games (optional, default {self.num_self_play_games}): "
             )
 
@@ -224,7 +228,7 @@ class HyperParameters:
 
     def set_num_epochs(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the number of epochs (optional, default {self.num_epochs}): "
             )
 
@@ -239,7 +243,7 @@ class HyperParameters:
 
     def set_batch_size(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the number of batch size (optional, default {self.batch_size}): "
             )
 
@@ -254,7 +258,7 @@ class HyperParameters:
 
     def set_temperature(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the move selection temperature (optional, default {self.temperature}): "
             )
 
@@ -269,7 +273,7 @@ class HyperParameters:
 
     def set_max_game_moves(self) -> None:
         while True:
-            input_value = utils.prompt_input(
+            input_value = self.prompt_input(
                 f"Enter the number of max. moves per game (optional, default {self.max_game_moves}): "
             )
 

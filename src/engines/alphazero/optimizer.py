@@ -1,16 +1,15 @@
 import os
 import torch
+from torch.optim import Adam  # type: ignore[attr-defined]
 from functools import cached_property
 from src.engines.alphazero import constants
 from src.engines.alphazero.model import GameNet
 
 
-class OptimizerWrapper:
+class Optimizer(Adam):
     def __init__(self, model: GameNet) -> None:
         self.model = model
-        self.optimizer = torch.optim.Adam(  # type: ignore[attr-defined]
-            self.model.parameters(), lr=0.001, weight_decay=0.0001
-        )
+        super().__init__(self.model.parameters(), lr=0.001, weight_decay=0.0001)
         self.load_state()
 
     @cached_property
@@ -25,8 +24,10 @@ class OptimizerWrapper:
 
     def load_state(self) -> None:
         if os.path.exists(self.file_path):
-            self.optimizer.load_state_dict(
-                torch.load(self.file_path, map_location=constants.DEVICE)
+            self.load_state_dict(
+                torch.load(
+                    self.file_path, weights_only=True, map_location=constants.DEVICE
+                )
             )
 
     def save_state(self) -> None:
@@ -35,4 +36,4 @@ class OptimizerWrapper:
         if directory:
             os.makedirs(directory, exist_ok=True)
 
-        torch.save(self.optimizer.state_dict(), self.file_path)
+        torch.save(self.state_dict(), self.file_path)

@@ -36,7 +36,7 @@ class AlphaZero(commons.Engine):
 
     def setup(self) -> None:
         self.load_hyperparameters()
-        self.hyper_parameters.seed = None
+        self.hyper_parameters._seed = None
         self.hyper_parameters.set_seed()
         self.hyper_parameters.set_mcts_iterations()
         self.load_model()

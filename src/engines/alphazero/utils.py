@@ -5,4 +5,4 @@ from . import constants
 
 
 def make_torch_tensor(array: npt.NDArray[t.Any]) -> torch.Tensor:
-    return torch.Tensor(array, device=constants.DEVICE)
+    return torch.Tensor(array).to(constants.DEVICE)
