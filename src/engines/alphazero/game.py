@@ -36,7 +36,3 @@ class AlphaZeroGame(games_commons.Game):
             return value
 
         return -value
-
-    @abc.abstractmethod
-    def apply_state(self, state: games_commons.GameState) -> None:
-        pass

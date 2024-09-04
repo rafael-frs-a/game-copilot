@@ -47,8 +47,8 @@ class AlphaZero(commons.Engine):
         ).generate_all_possible_moves()
 
     def suggest_move(self) -> None:
-        move_probs, value = self.mcts.search()
-        winning_changes = max(value, 0)
-        move_idx = np.argmax(move_probs)
+        moves_probs, values = self.mcts.search([self.game.current_state])
+        winning_changes = max(values[0], 0)
+        move_idx = np.argmax(moves_probs[0])
         suggested_move = self.all_game_moves[move_idx]
         print(f"Suggested move: {suggested_move}. Winning chances: {winning_changes}")

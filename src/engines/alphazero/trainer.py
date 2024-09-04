@@ -86,50 +86,75 @@ class AlphaZeroTrainer:
         self,
     ) -> list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]]:
         self.game.setup()
-        game_history: list[
-            tuple[
-                games_commons.GameState, games_commons.Player, npt.NDArray[np.float32]
+        active_game_states = [
+            self.game.current_state
+        ] * self.hyper_parameters.num_self_play_games
+        games_history: list[
+            list[
+                tuple[
+                    games_commons.GameState,
+                    games_commons.Player,
+                    npt.NDArray[np.float32],
+                ]
             ]
-        ] = []
-        result: list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]] = (
+        ] = [[] for _ in range(len(active_game_states))]
+        memory: list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]] = (
             []
         )
 
-        while (
-            not self.game.is_terminal(self.game.current_state)
-            and self.game.current_state.move_count
-            < self.hyper_parameters.max_game_moves
-        ):
-            state = self.game.current_state
-            player = state.get_next_player()
-            move_probs, _ = self.mcts.search()
-            game_history.append((state, player, move_probs))
+        while active_game_states:
+            moves_probs, _ = self.mcts.search(active_game_states)
 
             if self.hyper_parameters.temperature:
-                move_probs = move_probs ** (1 / self.hyper_parameters.temperature)
+                moves_probs = moves_probs ** (1 / self.hyper_parameters.temperature)
 
-            move = np.random.choice(self.all_game_moves, p=move_probs)
-            evaluation_result = self.game.evaluate_move(state, move)
+            next_active_game_states: list[games_commons.GameState] = []
+            next_games_history: list[
+                list[
+                    tuple[
+                        games_commons.GameState,
+                        games_commons.Player,
+                        npt.NDArray[np.float32],
+                    ]
+                ]
+            ] = []
 
-            if not evaluation_result.success or not evaluation_result.data:
-                raise Exception(
-                    "Invalid configuration. Engine selected an invalid move"
-                )
+            for idx, active_state in enumerate(active_game_states):
+                player = active_state.get_next_player()
+                games_history[idx].append((active_state, player, moves_probs[idx]))
+                move = np.random.choice(self.all_game_moves, p=moves_probs[idx])
+                result = self.game.evaluate_move(active_state, move)
 
-            self.game.apply_state(evaluation_result.data)
+                if not result.success or not result.data:
+                    raise Exception(
+                        "Invalid configuration. Engine selected an invalid move"
+                    )
 
-        winner = self.game.current_state.winner
+                new_state = result.data
 
-        for state, player, move_probs in game_history:
-            state_tensor = self.game.make_state_input_tensor(state)
-            value = 0.0
+                if (
+                    not self.game.is_terminal(new_state)
+                    and new_state.move_count < self.hyper_parameters.max_game_moves
+                ):
+                    next_active_game_states.append(new_state)
+                    next_games_history.append(games_history[idx])
+                    continue
 
-            if winner:
-                value = 1.0 if player == winner else -1.0
+                winner = new_state.winner
 
-            result.append((state_tensor, move_probs, value))
+                for state, player, move_probs in games_history[idx]:
+                    state_tensor = self.game.make_state_input_tensor(state)
+                    value = 0.0
 
-        return result
+                    if winner:
+                        value = 1.0 if player == winner else -1.0
+
+                    memory.append((state_tensor, move_probs, value))
+
+            active_game_states = next_active_game_states
+            games_history = next_games_history
+
+        return memory
 
     def train(
         self,
@@ -171,16 +196,8 @@ class AlphaZeroTrainer:
         for _ in trange(
             self.hyper_parameters.num_learning_iterations, desc="Learning iterations"
         ):
-            memory: list[
-                tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]
-            ] = []
             self.model.eval()
-
-            for _ in trange(
-                self.hyper_parameters.num_self_play_games, desc="Self-play games"
-            ):
-                memory += self.self_play()
-
+            memory = self.self_play()
             self.model.train()
 
             for _ in trange(self.hyper_parameters.num_epochs, desc="Training weights"):

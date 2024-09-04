@@ -67,101 +67,140 @@ class MCTS:
             key=ucb_value,
         )
 
-    def expand(self, node: Node) -> tuple[npt.NDArray[np.float32], float]:
-        input_array = self.game.make_state_input_tensor(node.state)
-        input_tensor = utils.make_torch_tensor(input_array)
-        input_tensor = input_tensor.unsqueeze(0)
-        policy, value = t.cast(
+    def expand(
+        self, nodes: list[Node]
+    ) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:
+        input_arrays = [self.game.make_state_input_tensor(node.state) for node in nodes]
+        input_tensor = utils.make_torch_tensor(np.array(input_arrays))
+        policies, values = t.cast(
             tuple[torch.Tensor, torch.Tensor], self.model(input_tensor)
         )
-        policy_array = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
+        # Convert something like `[[0.0391], [-0.0315]]` into `[0.0391, -0.0315]`
+        values = values.squeeze(1)
+        policies_array = torch.softmax(policies, dim=1).cpu().numpy()
 
-        if node.parent is None:
+        if nodes[0].parent is None:  # If one is the root node, all are
             # Add Dirichlet noise to the root node
-            policy_array = (
+            policies_array = (
                 1 - self.hyper_parameters.dirichlet_noise_epsilon
-            ) * policy_array + self.hyper_parameters.dirichlet_noise_epsilon * np.random.dirichlet(
-                [self.hyper_parameters.dirichlet_noise_alpha] * len(self.all_game_moves)
+            ) * policies_array + self.hyper_parameters.dirichlet_noise_epsilon * np.random.dirichlet(
+                [self.hyper_parameters.dirichlet_noise_alpha]
+                * len(self.all_game_moves),
+                size=policies.shape[0],
             )
 
-        valid_moves = self.game.generate_possible_moves(node.state)
-        valid_moves_map: dict[str, games_commons.GameState] = dict(valid_moves)
-        valid_moves_array = np.array([valid_move for valid_move in valid_moves_map])
-        valid_mask = np.isin(self.all_game_moves, valid_moves_array)
-        policy_array[~valid_mask] = 0  # Zero out invalid moves
-        policy_array /= np.sum(
-            policy_array
-        )  # Recalculate prob. distribution after zeroing out invalid moves
+        for idx, node in enumerate(nodes):
+            valid_moves = self.game.generate_possible_moves(node.state)
+            valid_moves_map: dict[str, games_commons.GameState] = dict(valid_moves)
+            valid_moves_array = np.array([valid_move for valid_move in valid_moves_map])
+            valid_mask = np.isin(self.all_game_moves, valid_moves_array)
 
-        for move_idx, prob in enumerate(policy_array):
-            if prob <= 0:
-                continue
+            policy_array = policies_array[idx]
+            policy_array[~valid_mask] = 0  # Zero out invalid moves
+            policy_sum = np.sum(policy_array)
 
-            move = self.all_game_moves[move_idx]
-            state = valid_moves_map[move]
-            node.add_child(move_idx, state, prob)
+            if policy_sum > 0:
+                policy_array /= np.sum(
+                    policy_sum
+                )  # Recalculate prob. distribution after zeroing out invalid moves
 
-        return policy_array, value.item()
+            for move_idx, prob in enumerate(policy_array):
+                if prob <= 0:
+                    continue
+
+                move = self.all_game_moves[move_idx]
+                state = valid_moves_map[move]
+                node.add_child(move_idx, state, prob)
+
+        return policies_array, values.cpu().numpy()
 
     def backpropagate(
         self,
-        node: Node,
-        winner: t.Optional[games_commons.Player],
-        value: t.Optional[float],
+        nodes: list[Node],
+        values: npt.NDArray[np.float32],
     ) -> None:
-        current_node: t.Optional[Node] = node
-        original_player = node.state.current_player
+        for idx, node in enumerate(nodes):
+            winner = node.state.winner
+            current_node: t.Optional[Node] = node
+            original_player = node.state.current_player
 
-        if value is None:
-            # Since the MCTS is not simulating games to a terminal state
-            # it should never happen that the winner, if there is one,
-            # is different from the node's current player, ie a defeat, only win or draw.
-            value = 1.0 if winner else 0.0
+            if self.game.is_terminal(node.state):
+                # Since the MCTS is not simulating games to a terminal state
+                # it should never happen that the winner, if there is one,
+                # is different from the node's current player, ie a defeat, only win or draw.
+                value = 1.0 if winner else 0.0
 
-            # However, we need to get the value from the perspective of the previous player,
-            # the parent node's state, since, in AlphaZero MCTS, the value from a node's state
-            # is used to update its children, not itself
+                # However, we need to get the value from the perspective of the previous player,
+                # the parent node's state, since, in AlphaZero MCTS, the value from a node's state
+                # is used to update its children, not itself
 
-            # Should always have a parent. Just doing this so mypy doesn't complain
-            if node.parent:
-                value = self.game.get_state_value(
-                    node.parent.state, original_player, value
+                # Should always have a parent. Just doing this so mypy doesn't complain
+                if node.parent:
+                    value = self.game.get_state_value(
+                        node.parent.state, original_player, value
+                    )
+            else:
+                # `values`'s size is the same as the number of active nodes, not terminal nodes
+                # since terminal nodes should be at the end of the list, it shouldn't enter this
+                # condition and raise an index error
+                value = values[idx]
+
+            while current_node:
+                current_node.update(
+                    self.game.get_state_value(
+                        current_node.state, original_player, value
+                    )
                 )
+                current_node = current_node.parent
 
-        while current_node:
-            current_node.update(
-                self.game.get_state_value(current_node.state, original_player, value)
-            )
-            current_node = current_node.parent
+    def select_node(self, root_node: Node) -> Node:
+        node = root_node
+
+        while node.children:
+            node = self.ucb_select(node)
+
+        return node
 
     @torch.no_grad()
-    def search(self) -> tuple[npt.NDArray[np.float32], float]:
-        root_node = Node(-1, self.game.current_state, None)
-        root_policy, root_value = self.expand(root_node)
+    def search(
+        self, states: list[games_commons.GameState]
+    ) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:
+        root_nodes = [Node(-1, state, None) for state in states]
+        root_policies, root_values = self.expand(root_nodes)
 
         if self.hyper_parameters.mcts_num_iterations == 0:
             # This could be used when the model is trained and we want to test playing it without MCTS
-            return root_policy, root_value
+            return root_policies, root_values
 
         for _ in range(self.hyper_parameters.mcts_num_iterations):
-            node = root_node
+            active_nodes: list[Node] = []
+            terminal_nodes: list[Node] = []
 
-            while node.children:
-                node = self.ucb_select(node)
+            for root_node in root_nodes:
+                node = self.select_node(root_node)
 
-            is_terminal = self.game.is_terminal(node.state)
-            winner = node.state.winner
-            value: t.Optional[float] = None
+                if self.game.is_terminal(node.state):
+                    terminal_nodes.append(node)
+                else:
+                    active_nodes.append(node)
 
-            if not is_terminal:
-                _, value = self.expand(node)
+            nodes = active_nodes + terminal_nodes
 
-            self.backpropagate(node, winner, value)
+            if active_nodes:
+                _, values = self.expand(active_nodes)
+            else:
+                values = np.array([])
 
-        move_probs = np.zeros(len(self.all_game_moves)).astype(np.float32)
+            self.backpropagate(nodes, values)
 
-        for child in root_node.children:
-            move_probs[child.move_idx] = child.visits
+        moves_probs = np.zeros((len(root_nodes), len(self.all_game_moves))).astype(
+            np.float32
+        )
 
-        move_probs /= np.sum(move_probs)
-        return move_probs, root_value
+        for idx, root_node in enumerate(root_nodes):
+            for child in root_node.children:
+                moves_probs[idx][child.move_idx] = child.visits
+
+            moves_probs[idx] /= np.sum(moves_probs[idx])
+
+        return moves_probs, root_values

@@ -264,6 +264,3 @@ class TicTacToe(AlphaZeroGame):
         next_player = t.cast(TicTacToePlayer, state.get_next_player())
         tensor[2] = self.ALPHAZERO_INPUT_CHANNEL_MAP[next_player.symbol]
         return tensor
-
-    def apply_state(self, state: commons.GameState) -> None:
-        self._current_state = t.cast(TicTacToeState, state)
