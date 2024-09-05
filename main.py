@@ -61,5 +61,6 @@ class Copilot:
         self.game.print_state(self.game.current_state)
 
 
-copilot = Copilot()
-copilot.run()
+if __name__ == "__main__":
+    copilot = Copilot()
+    copilot.run()

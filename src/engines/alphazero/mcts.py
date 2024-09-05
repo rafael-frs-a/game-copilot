@@ -71,7 +71,10 @@ class MCTS:
         self, nodes: list[Node]
     ) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:
         input_arrays = [self.game.make_state_input_tensor(node.state) for node in nodes]
-        input_tensor = utils.make_torch_tensor(np.array(input_arrays))
+        # Let's not use CUDA here if it's available
+        # because the overhead of constantly transferring data between GPU and CPU in this method
+        # actually slows down training
+        input_tensor = utils.make_torch_tensor(np.array(input_arrays), False)
         policies, values = t.cast(
             tuple[torch.Tensor, torch.Tensor], self.model(input_tensor)
         )
@@ -140,7 +143,7 @@ class MCTS:
                         node.parent.state, original_player, value
                     )
             else:
-                # `values`'s size is the same as the number of active nodes, not terminal nodes
+                # `values`'s size is the same as the number of active nodes, not including terminal nodes
                 # since terminal nodes should be at the end of the list, it shouldn't enter this
                 # condition and raise an index error
                 value = values[idx]

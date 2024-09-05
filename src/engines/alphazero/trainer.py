@@ -1,13 +1,20 @@
+import os
+import pickle
+import glob
 import random
+import psutil
 import numpy as np
 from enum import Enum
+from functools import cached_property
 from tqdm import trange
 from numpy import typing as npt
+from torch import multiprocessing as mp
 from torch.nn import functional as F
 from src import utils
 from src.games import commons as games_commons
 from src.games.tic_tac_toe import TicTacToe
 from src.games.chess import Chess
+from src.engines.alphazero import constants
 from src.engines.alphazero import utils as alphazero_utils
 from src.engines.alphazero.game import AlphaZeroGame
 from src.engines.alphazero.hyper_parameters import HyperParameters
@@ -68,6 +75,13 @@ class AlphaZeroTrainer:
             self.hyper_parameters.set_batch_size()
             self.hyper_parameters.set_temperature()
             self.hyper_parameters.set_max_game_moves()
+            self.hyper_parameters.set_num_cpus()
+        elif self.hyper_parameters._seed is not None:
+            seed, self.hyper_parameters._seed = (
+                self.hyper_parameters._seed,
+                None,
+            )  # Force apply seed
+            self.hyper_parameters.seed = seed
 
     def load_mcts(self) -> None:
         self.mcts = MCTS(self.game, self.hyper_parameters, self.model)
@@ -82,13 +96,27 @@ class AlphaZeroTrainer:
     def load_optimizer(self) -> None:
         self.optimizer = Optimizer(self.model)
 
-    def self_play(
-        self,
-    ) -> list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]]:
+    @cached_property
+    def training_folder(self) -> str:
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        folder = os.path.join(
+            current_dir,
+            constants.PROGRESS_FOLDER,
+            self.model.game.__class__.__name__,
+            constants.TRAINING_FOLDER,
+        )
+        os.makedirs(folder, exist_ok=True)
+        return folder
+
+    def self_play(self, worker_idx: int, num_self_play_games: int) -> None:
         self.game.setup()
-        active_game_states = [
-            self.game.current_state
-        ] * self.hyper_parameters.num_self_play_games
+        active_game_states = [self.game.current_state] * num_self_play_games
+        memory: list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]] = (
+            []
+        )
+        memory_file_path = os.path.join(
+            self.training_folder, f"memory-{worker_idx}.pkl"
+        )
         games_history: list[
             list[
                 tuple[
@@ -98,9 +126,6 @@ class AlphaZeroTrainer:
                 ]
             ]
         ] = [[] for _ in range(len(active_game_states))]
-        memory: list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]] = (
-            []
-        )
 
         while active_game_states:
             moves_probs, _ = self.mcts.search(active_game_states)
@@ -154,12 +179,21 @@ class AlphaZeroTrainer:
             active_game_states = next_active_game_states
             games_history = next_games_history
 
-        return memory
+        with open(memory_file_path, "wb") as f:
+            pickle.dump(memory, f)
 
     def train(
         self,
-        memory: list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]],
     ) -> None:
+        file_list = glob.glob(os.path.join(self.training_folder, "memory-*.pkl"))
+        memory: list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]] = (
+            []
+        )
+
+        for file in file_list:
+            with open(file, "rb") as f:
+                memory.extend(pickle.load(f))
+
         random.shuffle(memory)
 
         for batch_idx in range(0, len(memory), self.hyper_parameters.batch_size):
@@ -192,16 +226,49 @@ class AlphaZeroTrainer:
             loss.backward()  # type: ignore[no-untyped-call]
             self.optimizer.step()
 
+    def clear_training_folder(self) -> None:
+        for filename in os.listdir(self.training_folder):
+            if filename.endswith(".pkl"):
+                file_path = os.path.join(self.training_folder, filename)
+                os.unlink(file_path)
+
     def learn(self) -> None:
         for _ in trange(
             self.hyper_parameters.num_learning_iterations, desc="Learning iterations"
         ):
+            self.clear_training_folder()
             self.model.eval()
-            memory = self.self_play()
+            processes: list[mp.Process] = []
+            cpu_count = min(
+                self.hyper_parameters.num_cpus, psutil.cpu_count(logical=False)
+            )
+            base_batch_size = self.hyper_parameters.num_self_play_games // cpu_count
+            remainder = self.hyper_parameters.num_self_play_games % cpu_count
+
+            for worker_idx in range(cpu_count):
+                num_self_play_games = (
+                    base_batch_size + 1 if worker_idx < remainder else base_batch_size
+                )
+
+                if num_self_play_games <= 0:
+                    break
+
+                p = mp.Process(
+                    target=self.self_play, args=(worker_idx, num_self_play_games)
+                )
+                p.daemon = True
+                p.start()
+                processes.append(p)
+
+            for p in processes:
+                p.join()
+
             self.model.train()
 
-            for _ in trange(self.hyper_parameters.num_epochs, desc="Training weights"):
-                self.train(memory)
+            for _ in trange(self.hyper_parameters.num_epochs, desc="Training epochs"):
+                self.train()
+
+            self.save_progress()
 
     def save_progress(self) -> None:
         self.hyper_parameters.save_to_file(self.game)
@@ -215,9 +282,9 @@ class AlphaZeroTrainer:
         self.load_model()
         self.load_optimizer()
         self.load_mcts()
+        mp.set_start_method("spawn", force=True)
 
         try:
             self.learn()
-            self.save_progress()
-        except KeyboardInterrupt:
-            self.save_progress()
+        finally:
+            self.clear_training_folder()

@@ -1,5 +1,6 @@
 from src.engines.alphazero.trainer import AlphaZeroTrainer
 
 
-trainer = AlphaZeroTrainer()
-trainer.run()
+if __name__ == "__main__":
+    trainer = AlphaZeroTrainer()
+    trainer.run()

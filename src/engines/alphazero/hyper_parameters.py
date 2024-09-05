@@ -25,6 +25,7 @@ class HyperParameters:
     batch_size: int = 256
     temperature: float = 1.0  # Temperature of 1 has no effect in move selection
     max_game_moves: int = 100
+    num_cpus: int = 1
     save_input_history: bool = True
 
     @property
@@ -282,6 +283,21 @@ class HyperParameters:
 
             try:
                 self.max_game_moves = max(0, int(input_value))
+                break
+            except ValueError:
+                print("Invalid input. Please enter a valid number")
+
+    def set_num_cpus(self) -> None:
+        while True:
+            input_value = self.prompt_input(
+                f"Enter the number of CPUs for training (optional, default {self.num_cpus}): "
+            )
+
+            if not input_value:
+                break
+
+            try:
+                self.num_cpus = max(1, int(input_value))
                 break
             except ValueError:
                 print("Invalid input. Please enter a valid number")

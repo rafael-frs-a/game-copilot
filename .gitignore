@@ -24,3 +24,6 @@ htmlcov/
 
 # Generated files
 history.txt
+
+# Training files
+training/*.pkl

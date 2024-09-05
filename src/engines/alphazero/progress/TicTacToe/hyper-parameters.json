@@ -12,5 +12,6 @@
   "batch_size": 64,
   "temperature": 1.0,
   "max_game_moves": 100,
+  "num_cpus": 14,
   "save_input_history": false
 }
