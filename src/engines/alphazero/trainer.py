@@ -5,13 +5,13 @@ import random
 import psutil
 import numpy as np
 from enum import Enum
+from datetime import datetime
 from functools import cached_property
 from tqdm import trange
 from numpy import typing as npt
 from torch import multiprocessing as mp
 from torch.nn import functional as F
 from src import utils
-from src.games import commons as games_commons
 from src.games.tic_tac_toe import TicTacToe
 from src.games.chess import Chess
 from src.engines.alphazero import constants
@@ -110,43 +110,34 @@ class AlphaZeroTrainer:
 
     def self_play(self, worker_idx: int, num_self_play_games: int) -> None:
         self.game.setup()
-        active_game_states = [self.game.current_state] * num_self_play_games
-        memory: list[tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]] = (
-            []
-        )
-        memory_file_path = os.path.join(
-            self.training_folder, f"memory-{worker_idx}.pkl"
-        )
-        games_history: list[
-            list[
-                tuple[
-                    games_commons.GameState,
-                    games_commons.Player,
-                    npt.NDArray[np.float32],
-                ]
-            ]
-        ] = [[] for _ in range(len(active_game_states))]
+        active_games = {
+            game_idx: self.game.current_state for game_idx in range(num_self_play_games)
+        }
+        timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
 
-        while active_game_states:
-            moves_probs, _ = self.mcts.search(active_game_states)
+        while active_games:
+            current_active_games = list(active_games.items())
+            active_states = [
+                current_active_game[1] for current_active_game in current_active_games
+            ]
+            moves_probs, _ = self.mcts.search(active_states)
 
             if self.hyper_parameters.temperature:
                 moves_probs = moves_probs ** (1 / self.hyper_parameters.temperature)
 
-            next_active_game_states: list[games_commons.GameState] = []
-            next_games_history: list[
-                list[
-                    tuple[
-                        games_commons.GameState,
-                        games_commons.Player,
-                        npt.NDArray[np.float32],
-                    ]
-                ]
-            ] = []
-
-            for idx, active_state in enumerate(active_game_states):
+            for idx, (game_idx, active_state) in enumerate(current_active_games):
                 player = active_state.get_next_player()
-                games_history[idx].append((active_state, player, moves_probs[idx]))
+                move_probs = moves_probs[idx]
+                game_history_file_path = os.path.join(
+                    self.training_folder,
+                    f"game-history-{worker_idx}-{game_idx}-{timestamp}.pkl",
+                )
+
+                with open(game_history_file_path, "ab") as f:
+                    state_array = self.game.make_state_input_tensor(active_state)
+                    history = (state_array, player.__hash__(), move_probs)
+                    pickle.dump(history, f)
+
                 move = np.random.choice(self.all_game_moves, p=moves_probs[idx])
                 result = self.game.evaluate_move(active_state, move)
 
@@ -161,26 +152,44 @@ class AlphaZeroTrainer:
                     not self.game.is_terminal(new_state)
                     and new_state.move_count < self.hyper_parameters.max_game_moves
                 ):
-                    next_active_game_states.append(new_state)
-                    next_games_history.append(games_history[idx])
+                    active_games[game_idx] = new_state
                     continue
 
+                active_games.pop(game_idx)
                 winner = new_state.winner
+                game_history: list[
+                    tuple[
+                        npt.NDArray[np.float32],
+                        int,
+                        npt.NDArray[np.float32],
+                    ]
+                ] = []
 
-                for state, player, move_probs in games_history[idx]:
-                    state_tensor = self.game.make_state_input_tensor(state)
+                with open(game_history_file_path, "rb") as f:
+                    while True:
+                        try:
+                            game_history.append(pickle.load(f))
+                        except EOFError:
+                            break
+
+                game_memory_file_path = os.path.join(
+                    self.training_folder,
+                    f"memory-{worker_idx}-{game_idx}-{timestamp}.pkl",
+                )
+                memory: list[
+                    tuple[npt.NDArray[np.float32], npt.NDArray[np.float32], float]
+                ] = []
+
+                for state_tensor, player_hash, move_probs in game_history:
                     value = 0.0
 
                     if winner:
-                        value = 1.0 if player == winner else -1.0
+                        value = 1.0 if player_hash == winner.__hash__() else -1.0
 
                     memory.append((state_tensor, move_probs, value))
 
-            active_game_states = next_active_game_states
-            games_history = next_games_history
-
-        with open(memory_file_path, "wb") as f:
-            pickle.dump(memory, f)
+                with open(game_memory_file_path, "wb") as f:
+                    pickle.dump(memory, f)
 
     def train(
         self,
@@ -280,6 +289,7 @@ class AlphaZeroTrainer:
         self.all_game_moves = self.game.generate_all_possible_moves()
         self.load_hyperparameters()
         self.load_model()
+        self.model.share_memory()
         self.load_optimizer()
         self.load_mcts()
         mp.set_start_method("spawn", force=True)

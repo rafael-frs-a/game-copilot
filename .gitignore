@@ -26,4 +26,4 @@ htmlcov/
 history.txt
 
 # Training files
-training/*.pkl
+*.pkl

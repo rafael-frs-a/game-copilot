@@ -71,10 +71,7 @@ class MCTS:
         self, nodes: list[Node]
     ) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:
         input_arrays = [self.game.make_state_input_tensor(node.state) for node in nodes]
-        # Let's not use CUDA here if it's available
-        # because the overhead of constantly transferring data between GPU and CPU in this method
-        # actually slows down training
-        input_tensor = utils.make_torch_tensor(np.array(input_arrays), False)
+        input_tensor = utils.make_torch_tensor(np.array(input_arrays))
         policies, values = t.cast(
             tuple[torch.Tensor, torch.Tensor], self.model(input_tensor)
         )
