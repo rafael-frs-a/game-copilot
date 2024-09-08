@@ -1,6 +1,3 @@
-import hashlib
-
-
 HISTORY_FILE_PATH = "history.txt"
 
 
@@ -20,6 +17,6 @@ def prompt_input(message: str, save_history: bool = True) -> str:
 
 
 def make_hash_number(value: str) -> int:
-    hash_ = hashlib.sha1(value.encode()).hexdigest()
+    # hash_ = hashlib.sha1(value.encode()).hexdigest()
     # return int(hash_, 16)  # Debug hash consistency. Overflows with mypyc
-    return hash(hash_)
+    return hash(value)

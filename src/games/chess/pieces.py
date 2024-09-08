@@ -1,8 +1,9 @@
 import abc
 import typing as t
 from enum import Enum
-from functools import cache
+from functools import cache, lru_cache
 from src import utils
+from src.games.chess import constants
 from src.games.chess import utils as chess_utils
 from src.games.chess.commons import ChessPlayerType
 
@@ -151,7 +152,7 @@ class Pawn(ChessPiece):
 
         return controlled_squares
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def get_controlled_squares(self, state: "ChessState") -> set[tuple[int, int]]:
         # The state doesn't actually matter when determining the squares controlled by the pawn
         # since its capture range is of just one square
@@ -174,7 +175,7 @@ class Pawn(ChessPiece):
         result.add(base_move)
         return result
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
         idx_row, idx_col = self.current_position
@@ -247,7 +248,7 @@ class Bishop(ChessPiece):
         self.symbol = "♗" if self.player.type == ChessPlayerType.WHITE else "♝"
         self.make_hash()
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def get_controlled_squares(self, state: "ChessState") -> set[tuple[int, int]]:
         controlled_squares: set[tuple[int, int]] = set()
         actions = [
@@ -274,7 +275,7 @@ class Bishop(ChessPiece):
 
         return controlled_squares
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
         controlled_squares = self.get_controlled_squares(state)
@@ -336,13 +337,13 @@ class Knight(ChessPiece):
 
         return controlled_squares
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def get_controlled_squares(self, state: "ChessState") -> set[tuple[int, int]]:
         # The state doesn't actually matter when determining the squares controlled by the knight
         # since its capture range is not limited by pieces in the way
         return self._get_controlled_squares(self.current_position)
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
         controlled_squares = self._get_controlled_squares(self.current_position)
@@ -381,7 +382,7 @@ class Rook(ChessPiece):
         self.symbol = "♖" if self.player.type == ChessPlayerType.WHITE else "♜"
         self.make_hash()
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def get_controlled_squares(self, state: "ChessState") -> set[tuple[int, int]]:
         controlled_squares: set[tuple[int, int]] = set()
         actions = [
@@ -408,7 +409,7 @@ class Rook(ChessPiece):
 
         return controlled_squares
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
         controlled_squares = self.get_controlled_squares(state)
@@ -443,7 +444,7 @@ class Queen(ChessPiece):
         self.symbol = "♕" if self.player.type == ChessPlayerType.WHITE else "♛"
         self.make_hash()
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def get_controlled_squares(self, state: "ChessState") -> set[tuple[int, int]]:
         controlled_squares: set[tuple[int, int]] = set()
         actions = [
@@ -474,7 +475,7 @@ class Queen(ChessPiece):
 
         return controlled_squares
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
         controlled_squares = self.get_controlled_squares(state)
@@ -539,7 +540,7 @@ class King(ChessPiece):
 
         return controlled_squares
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def get_controlled_squares(self, state: "ChessState") -> set[tuple[int, int]]:
         # The state doesn't actually matter when determining the squares controlled by the king
         # since its capture range is of just one square
@@ -597,7 +598,7 @@ class King(ChessPiece):
     def can_castle_queen_side(self, state: "ChessState") -> bool:
         return self._can_castle(state, 4, -1)
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def generate_possible_moves(self, state: "ChessState") -> set[str]:
         possible_moves: set[str] = set()
         controlled_squares = self._get_controlled_squares(self.current_position)

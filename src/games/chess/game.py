@@ -1,10 +1,11 @@
 import typing as t
 import numpy as np
-from functools import cache
+from functools import cache, lru_cache
 from numpy import typing as npt
 from src import utils
 from src.games import commons
 from src.engines.alphazero.game import AlphaZeroGame
+from src.games.chess import constants
 from src.games.chess import pieces as chess_pieces
 from src.games.chess import utils as chess_utils
 from src.games.chess.players import ChessPlayer
@@ -175,7 +176,7 @@ class Chess(AlphaZeroGame):
         self.update_state_squares_in_check(new_state)
         return new_state
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def evaluate_move(
         self, state: commons.GameState, move: str
     ) -> commons.Result[commons.GameState]:
@@ -275,7 +276,7 @@ class Chess(AlphaZeroGame):
 
         return commons.Result(new_state)
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def generate_possible_moves(
         self, state: commons.GameState
     ) -> list[tuple[str, commons.GameState]]:
@@ -353,7 +354,7 @@ class Chess(AlphaZeroGame):
         #    17. Next player (the one that will change the current state)
         #    18. Board indicating on which square an en-passant capture is possible
         #    19. No progress move count (used in 50-move draw rule. Not binary like the others)
-        #    20. Move count (used to force finish long matches on AlphaZero MCTS)
+        #    20. Move count (used to force finish long matches on AlphaZero MCTS. Also not binary like the others)
         # 2. Board height
         # 3. Board width
         return (20, 8, 8)
@@ -424,7 +425,7 @@ class Chess(AlphaZeroGame):
         "♚": 13,
     }
 
-    @cache
+    @lru_cache(maxsize=constants.CACHE_MAX_SIZE)
     def make_state_input_tensor(
         self, state: commons.GameState
     ) -> npt.NDArray[np.float32]:
