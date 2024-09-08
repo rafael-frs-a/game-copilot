@@ -49,10 +49,6 @@ class ChessState(commons.GameState):
             for piece in player.pieces:
                 board_copy[piece.current_position_notation] = piece
 
-        squares_in_check = {
-            player: squares for player, squares in self.squares_in_check.items()
-        }
-
         return ChessState(
             board_copy,
             players_copy,
@@ -62,5 +58,4 @@ class ChessState(commons.GameState):
             ),  # No need to copy the winner, since it's used to determine terminal states
             self.move_count,
             self.move_count_no_progress,
-            squares_in_check,
         )
