@@ -11,7 +11,7 @@ For action suggestion, it currently implements the following engines:
 - Monte Carlo Tree Search (MCTS);
 - AlphaZero (more information in its README)
 
-![image](https://github.com/user-attachments/assets/f0025229-d2df-4b0d-8f1e-05781bb38fad)
+![mcts-tic-tac-toe](https://github.com/user-attachments/assets/aad04b99-bb1d-4aae-a559-ff5a4b1d9859)
 
 Note: although theoretically useful, MCTS is not usable with the current implementation of chess, as it would take several hours to suggest one good move.
 
