@@ -26,6 +26,8 @@ To use AlphaZero as a move suggestion engine, run `python main.py` and select `a
 
 To train AlphaZero, run `python train_alphazero.py`. Similarly, if trained data exists in the game's progress folder, it will load it so training can resume from where it left off. Otherwise, it will prompt for hyperparameter values.
 
+![alphazero-tic-tac-toe](https://github.com/user-attachments/assets/c88e02d6-e25e-42f2-94e8-8917820a6a66)
+
 # Limitations
 
 ## Proprietary original implementation
