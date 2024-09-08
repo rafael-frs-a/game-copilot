@@ -1,6 +1,6 @@
-from src.engines.alphazero.trainer import AlphaZeroTrainer
+from src.engines.alphazero.agent import AlphaZeroAgent
 
 
 if __name__ == "__main__":
-    trainer = AlphaZeroTrainer()
-    trainer.run()
+    agent = AlphaZeroAgent()
+    agent.run()

@@ -38,7 +38,7 @@ def make_game(game_type: str) -> AlphaZeroGame:
     raise ValueError("The selected game is not supported")
 
 
-class AlphaZeroTrainer:
+class AlphaZeroAgent:
     def select_game(self) -> None:
         game_options = [game_type.value for game_type in AlphaZeroGameType]
 
