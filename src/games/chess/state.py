@@ -32,11 +32,18 @@ class ChessState(commons.GameState):
         pieces: list[str] = []
 
         for piece in self.board.values():
-            pieces.append(f"{piece.symbol}{piece.current_position_notation}")
+            piece_state = f"{piece.symbol}{piece.current_position_notation}"
 
-        state = "".join(sorted(pieces))
-        state += t.cast(ChessPlayer, self.current_player).type.value
-        state += str(self.move_count_no_progress)
+            if isinstance(piece, (chess_pieces.King, chess_pieces.Rook)):
+                piece_state += f":castle={piece.can_castle}"
+            elif isinstance(piece, chess_pieces.Pawn):
+                piece_state += f":en_passant={piece.en_passant}"
+
+            pieces.append(piece_state)
+
+        state = ",".join(sorted(pieces))
+        state += f"|{t.cast(ChessPlayer, self.current_player).type.value}"
+        state += f"|{self.move_count_no_progress}|{self.move_count}"
         self._hash = utils.make_hash_number(state)
 
     def copy(self) -> commons.GameState:

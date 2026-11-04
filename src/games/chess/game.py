@@ -255,6 +255,9 @@ class Chess(AlphaZeroGame):
         if not piece or piece.notation.value != piece_notation:
             return commons.Result(error="Invalid piece/current position")
 
+        if piece.player != current_player:
+            return commons.Result(error="Invalid move")
+
         piece_moves = piece.generate_possible_moves(state)
 
         if move not in piece_moves:
@@ -287,7 +290,7 @@ class Chess(AlphaZeroGame):
         if state.winner:
             return possible_moves
 
-        if state.move_count_no_progress >= 50:
+        if state.move_count_no_progress >= 100:
             return possible_moves
 
         next_player = t.cast(ChessPlayer, state.players[state.get_next_player_idx()])
