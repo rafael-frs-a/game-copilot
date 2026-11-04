@@ -268,6 +268,7 @@ class Chess(AlphaZeroGame):
             promoted_piece_notation,
         )
 
+        current_player = t.cast(ChessPlayer, new_state.current_player)
         if (
             current_player.king.current_position
             in new_state.squares_in_check[current_player]
